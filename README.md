@@ -1,0 +1,64 @@
+# Redline Recital
+
+Six engines on a studio stand, each tuned like an instrument. An engine's note is its
+firing frequency, **RPM × cylinders ÷ 120**, so a V8 at 3,300 rpm hums A3 (220 Hz).
+Rev them, play them from a keyboard, or chase a melody with the throttle in Rev Hero.
+
+| Engine | Firing order | Pitch | Range |
+|---|---|---|---|
+| Inline-4 | 1-3-4-2 | RPM ÷ 30 | bass |
+| Flat-4 boxer, unequal-length headers | 1-3-2-4 | RPM ÷ 30 | rumble |
+| Inline-6 | 1-5-3-6-2-4 | RPM ÷ 20 | baritone |
+| Crossplane V8 | 1-8-7-2-6-5-4-3 | RPM ÷ 15 | lead |
+| 60° V12 | 1-7-5-11-3-9-6-12-2-8-4-10 | RPM ÷ 10 | tenor |
+| 72° F1-style V10 | 1-6-2-7-4-9-5-10-3-8 | RPM ÷ 12 | soprano |
+
+## Run it
+
+```sh
+npm install
+npm run dev          # http://localhost:5173
+npm test             # physics, voice, sim and game tests
+npm run build        # typecheck + production build in dist/
+npm run render-wavs  # offline renders of every engine into out/
+```
+
+## How it works
+
+Everything comes from the engine catalog (`src/engines/catalog.ts`). Nothing is a
+recording or a downloaded model.
+
+- **Kinematics** (`src/engines/kinematics.ts`): even firing angles from the firing order.
+  Crank-pin angles come from each bore's axis, then slider-crank piston motion and valve lift.
+  Tests check that every firing order matches a real crankshaft: shared V-engine pins line
+  up, the V8 is a true crossplane, and the boxer's opposed pins sit 180° apart.
+- **Balance** (`src/engines/balance.ts`): primary and secondary reciprocating forces and
+  couples. The part counterweights can cancel is removed, and the rest drives the
+  (exaggerated) mount shake.
+- **Sim** (`src/sim/engineSim.ts`): torque curve, friction, pumping loss and flywheel
+  inertia. It also models the fuel-cut rev limiter and the starter with its flare. A
+  feedforward + PI "ECU" holds the RPM for a note.
+- **Voice** (`src/audio/dsp.ts`): a pure TypeScript synth that runs in an AudioWorklet,
+  with a ScriptProcessor fallback.
+  - Each cylinder's exhaust valve opening fires a blowdown pulse into its exhaust bus,
+    after its header delay.
+  - The pulses run through a pipe resonance and a muffler.
+  - On top are intake roar, valvetrain ticks, starter whine and overrun pops.
+  - Tests confirm the detected pitch equals RPM × cylinders ÷ 120 for every engine.
+- **3D** (`src/scene/`): Three.js with procedural geometry: crank with counterweights,
+  I-beam rods, lathe-turned pistons, DOHC cams timed per valve, a glass block, headers,
+  a flywheel and a stand. Effects are spark flashes, combustion glow, exhaust pulses
+  and header heat.
+
+## Limits
+
+- The sound is synthesized. Pitch and rhythm are physically grounded, but it will not
+  match a recording.
+- The camera runs in slow motion by default (1/redline÷240 of real speed) so the crank
+  is readable. The sound is always real time.
+- The V10 firing order is geometrically consistent and F1-style, not a specific team's.
+
+## Publishing
+
+`node scripts/artifact-page.mjs` turns `dist/index.html` into the fragment page the
+claude.ai Artifact host expects, and prints the asset map to publish alongside it.
