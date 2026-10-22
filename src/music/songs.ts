@@ -78,7 +78,7 @@ export function octaveShiftFor(song: Song, spec: EngineSpec): number {
   const lo = Math.min(...notes);
   const hi = Math.max(...notes);
   const range = playableRange(spec);
-  const sweet = range.low + 0.58 * (range.high - range.low);
+  const sweet = range.low + 0.62 * (range.high - range.low);
   let best = 0;
   let bestScore = Infinity;
   for (let k = -5; k <= 5; k++) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ENGINES, ENGINE_BY_ID, type EngineSpec } from '../src/engines/catalog.ts';
+import { ENGINES, ENGINE_BY_ID, type EngineId, type PistonSpec } from '../src/engines/catalog.ts';
 import {
   exhaustLift,
   firingAngles,
@@ -11,7 +11,10 @@ import {
   rpmForHz,
   strokeOf,
 } from '../src/engines/kinematics.ts';
-import { balanceSummary } from '../src/engines/balance.ts';
+import { balanceSummary, hasSplitPins } from '../src/engines/balance.ts';
+
+const P = (id: EngineId) => ENGINE_BY_ID[id] as PistonSpec;
+const PISTONS = ENGINES.filter((e): e is PistonSpec => e.kind === 'piston');
 
 const near = (a: number, b: number, eps = 1e-6) => Math.abs(a - b) < eps;
 const angleDiff = (a: number, b: number) => {
@@ -20,9 +23,17 @@ const angleDiff = (a: number, b: number) => {
 };
 
 describe('catalog integrity', () => {
-  it.each(ENGINES.map((e) => [e.id, e] as const))('%s has consistent per-cylinder arrays', (_, e) => {
-    const n = e.cylinders;
-    for (const arr of [e.bankOf, e.row, e.exhaustBus, e.headerDelayMs]) expect(arr).toHaveLength(n);
+  it.each(ENGINES.map((e) => [e.id, e] as const))('%s has consistent per-chamber arrays', (_, e) => {
+    const n = e.chambers;
+    for (const arr of [e.exhaustBus, e.headerDelayMs]) expect(arr).toHaveLength(n);
+    if (e.kind === 'piston') {
+      expect(e.chambers).toBe(e.cylinders);
+      expect(e.cycleDeg).toBe(720);
+      for (const arr of [e.bankOf, e.row]) expect(arr).toHaveLength(n);
+    } else {
+      expect(e.chambers).toBe(3 * e.rotors);
+      expect(e.cycleDeg).toBe(1080);
+    }
     expect([...e.firingOrder].sort((a, b) => a - b)).toEqual(Array.from({ length: n }, (_, i) => i + 1));
     expect(e.voice.pipeHz.length).toBe(Math.max(...e.exhaustBus) + 1);
     expect(e.voice.pan.length).toBe(e.voice.pipeHz.length);
@@ -59,31 +70,51 @@ describe('piston kinematics', () => {
 });
 
 describe('firing order matches a real crankshaft', () => {
-  const pinsFor = (e: EngineSpec) => pinAngles(e);
-  const byRow = (e: EngineSpec) => {
+  const pinsFor = (e: PistonSpec) => pinAngles(e);
+  const byRow = (e: PistonSpec) => {
     const pins = pinsFor(e);
     const rows = new Map<number, number[]>();
     e.row.forEach((r, i) => rows.set(r, [...(rows.get(r) ?? []), pins[i]]));
     return [...rows.entries()].sort((a, b) => a[0] - b[0]).map(([, p]) => p);
   };
 
-  it('V engines: both cylinders on a row share one crank pin', () => {
+  it('V8, V12 and V10: both cylinders on a row share one crank pin', () => {
     for (const id of ['v8', 'v12', 'v10'] as const) {
-      for (const pins of byRow(ENGINE_BY_ID[id])) {
+      expect(hasSplitPins(P(id))).toBe(false);
+      for (const pins of byRow(P(id))) {
         expect(pins).toHaveLength(2);
         expect(angleDiff(pins[0], pins[1])).toBeLessThan(1e-9);
       }
     }
   });
 
+  it("V6: a 60° split-pin crank, each row's two pins 60° apart and rows 120° apart", () => {
+    const e = P('v6');
+    expect(hasSplitPins(e)).toBe(true);
+    const rows = byRow(e);
+    for (const pins of rows) expect(angleDiff(pins[0], pins[1])).toBeCloseTo(60, 9);
+    expect(angleDiff(rows[0][0], rows[1][0])).toBeCloseTo(120, 9);
+    expect(angleDiff(rows[0][0], rows[2][0])).toBeCloseTo(120, 9);
+  });
+
+  it('V6 banks each fire like an inline-3, every 240°, interleaved every 120°', () => {
+    const e = P('v6');
+    const fire = firingAngles(e);
+    for (const bank of [0, 1]) {
+      const a = fire.filter((_, i) => e.bankOf[i] === bank).sort((x, y) => x - y);
+      expect(a[1] - a[0]).toBeCloseTo(240, 9);
+      expect(a[2] - a[1]).toBeCloseTo(240, 9);
+    }
+  });
+
   it('V8 is a true crossplane: four pins 90° apart in two planes', () => {
-    const rows = byRow(ENGINE_BY_ID.v8).map((p) => p[0]);
+    const rows = byRow(P('v8')).map((p) => p[0]);
     const rel = rows.map((p) => mod(p - rows[0], 360));
     expect(rel).toEqual([0, 90, 270, 180]);
   });
 
   it('I6 and each V12 bank pair throws 1-6, 2-5, 3-4 at 120° spacing', () => {
-    for (const pins of [pinsFor(ENGINE_BY_ID.i6), byRow(ENGINE_BY_ID.v12).map((p) => p[0])]) {
+    for (const pins of [pinsFor(P('i6')), byRow(P('v12')).map((p) => p[0])]) {
       expect(angleDiff(pins[0], pins[5])).toBeLessThan(1e-9);
       expect(angleDiff(pins[1], pins[4])).toBeLessThan(1e-9);
       expect(angleDiff(pins[2], pins[3])).toBeLessThan(1e-9);
@@ -93,26 +124,25 @@ describe('firing order matches a real crankshaft', () => {
   });
 
   it('I4 is a flat-plane crank: 1 and 4 up together, 2 and 3 opposite', () => {
-    const p = pinsFor(ENGINE_BY_ID.i4);
+    const p = pinsFor(P('i4'));
     expect(angleDiff(p[0], p[3])).toBeLessThan(1e-9);
     expect(angleDiff(p[1], p[2])).toBeLessThan(1e-9);
     expect(angleDiff(p[0], p[1])).toBeCloseTo(180, 9);
   });
 
   it('boxer: opposed pistons sit on pins 180° apart and move in and out together', () => {
-    const e = ENGINE_BY_ID.b4;
-    for (const pins of byRow(e)) expect(angleDiff(pins[0], pins[1])).toBeCloseTo(180, 9);
+    for (const pins of byRow(P('b4'))) expect(angleDiff(pins[0], pins[1])).toBeCloseTo(180, 9);
   });
 
   it('V10 banks fire like inline-5s, every 144°', () => {
-    const e = ENGINE_BY_ID.v10;
+    const e = P('v10');
     const fire = firingAngles(e);
     const bankA = fire.filter((_, i) => e.bankOf[i] === 0).sort((a, b) => a - b);
     for (let k = 1; k < bankA.length; k++) expect(bankA[k] - bankA[k - 1]).toBeCloseTo(144, 9);
   });
 
   it('crossplane V8 banks fire unevenly (the burble), the whole engine evenly', () => {
-    const e = ENGINE_BY_ID.v8;
+    const e = P('v8');
     const fire = firingAngles(e);
     const gaps = (bank: number) => {
       const a = fire.filter((_, i) => e.bankOf[i] === bank).sort((x, y) => x - y);
@@ -124,7 +154,7 @@ describe('firing order matches a real crankshaft', () => {
 });
 
 describe('balance', () => {
-  const s = (id: keyof typeof ENGINE_BY_ID) => balanceSummary(ENGINE_BY_ID[id]);
+  const s = (id: EngineId) => balanceSummary(P(id));
   it('inline-6 and V12 are perfectly balanced', () => {
     for (const id of ['i6', 'v12'] as const) {
       const b = s(id);
@@ -135,7 +165,7 @@ describe('balance', () => {
     }
   });
   it('inline-4 keeps a secondary force of 4λ (vertical buzz at 2× crank speed)', () => {
-    const e = ENGINE_BY_ID.i4;
+    const e = P('i4');
     const b = s('i4');
     expect(b.primaryForce).toBeLessThan(1e-9);
     expect(b.secondaryForce).toBeCloseTo((4 * e.stroke) / 2 / e.rodLength, 9);
@@ -147,6 +177,18 @@ describe('balance', () => {
     expect(b.secondaryForce).toBeLessThan(1e-9);
     expect(b.secondaryCouple).toBeGreaterThan(0.05);
   });
+  it('60° V6 cancels its forces but, unlike an inline-6, keeps a rocking couple', () => {
+    const b = s('v6');
+    expect(b.primaryForce).toBeLessThan(1e-9);
+    expect(b.secondaryForce).toBeLessThan(1e-9);
+    expect(b.primaryCouple + b.secondaryCouple).toBeGreaterThan(0.05);
+  });
+  it('every piston engine has finite balance numbers', () => {
+    for (const e of PISTONS) {
+      const b = balanceSummary(e);
+      for (const v of Object.values(b)) expect(Number.isFinite(v)).toBe(true);
+    }
+  });
   it('crossplane V8 has no secondary force or couple', () => {
     const b = s('v8');
     expect(b.primaryForce).toBeLessThan(1e-9);
@@ -156,7 +198,12 @@ describe('balance', () => {
 });
 
 describe('pitch maths', () => {
+  it('rotary: one bang per rotor per shaft turn, RPM × rotors ÷ 60', () => {
+    expect(firingHz(ENGINE_BY_ID.r2, 9000)).toBeCloseTo(300, 9);
+    expect(rpmForHz(ENGINE_BY_ID.r2, 220)).toBeCloseTo(6600, 9);
+  });
   it('firing frequency is RPM × cylinders ÷ 120', () => {
+    expect(rpmForHz(ENGINE_BY_ID.v6, 220)).toBeCloseTo(4400, 9);
     expect(firingHz(ENGINE_BY_ID.v8, 3300)).toBeCloseTo(220, 9);
     expect(rpmForHz(ENGINE_BY_ID.v10, 440)).toBeCloseTo(5280, 9); // the 2003 F1 stunt
     expect(rpmForHz(ENGINE_BY_ID.v12, 440)).toBeCloseTo(4400, 9);

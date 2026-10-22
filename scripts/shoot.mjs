@@ -67,8 +67,9 @@ async function noOverflow(page, name) {
   if (revving < 3000) problems.push(`space did not rev the engine: ${revving}`);
   await wait(1500);
 
-  for (const [k, id] of ['i4', 'b4', 'i6', 'v8', 'v12', 'v10'].entries()) {
+  for (const [k, id] of ['i4', 'b4', 'i6', 'v8', 'v12', 'v10', 'v6', 'r2'].entries()) {
     await page.keyboard.press(`Digit${k + 1}`);
+    await page.waitForFunction((id) => window.__redline.state.spec.id === id, id, { timeout: 30000 }).catch(() => {});
     await wait(1800);
     const cur = await page.evaluate(() => window.__redline.state.spec.id);
     if (cur !== id) problems.push(`engine key ${k + 1} selected ${cur}, expected ${id}`);
@@ -91,6 +92,18 @@ async function noOverflow(page, name) {
   await wait(3000);
   await page.screenshot({ path: `${outDir}/06-demo.png` });
   await page.click('#demo-play');
+
+  // The new engines hold notes too: A3 is 4,400 rpm on the V6 and 6,600 rpm on the rotary.
+  for (const [key, id, rpm] of [['Digit7', 'v6', 4400], ['Digit8', 'r2', 6600]]) {
+    await page.keyboard.press(key);
+    await page.waitForFunction((id) => window.__redline.state.spec.id === id, id, { timeout: 30000 }).catch(() => {});
+    await page.evaluate(() => window.__redline.noteOn(57));
+    await page.waitForFunction((rpm) => Math.abs(window.__redline.sim.rpm - rpm) < rpm * 0.006, rpm, { timeout: 40000 }).catch(() => {});
+    const got = await page.evaluate(() => window.__redline.sim.rpm);
+    await page.evaluate(() => window.__redline.noteOff(57));
+    console.log(`${id}: A3 held at`, Math.round(got), 'rpm');
+    if (Math.abs(got - rpm) > rpm * 0.006) problems.push(`${id} should hold A3 at ${rpm} rpm, got ${got}`);
+  }
 
   await page.click('#tab-hero');
   await wait(300);

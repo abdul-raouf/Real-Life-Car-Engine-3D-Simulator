@@ -1,7 +1,17 @@
 import './ui/styles.css';
-import { ENGINES, ENGINE_BY_ID, displacementLitres, type EngineId, type EngineSpec } from './engines/catalog.ts';
-import { balanceSummary } from './engines/balance.ts';
-import { firingHz, rpmForHz } from './engines/kinematics.ts';
+import type * as THREE from 'three';
+import {
+  ENGINES,
+  ENGINE_BY_ID,
+  displacementLitres,
+  firingInterval,
+  wankelChamberCc,
+  type EngineId,
+  type EngineSpec,
+  type PistonSpec,
+} from './engines/catalog.ts';
+import { balanceSummary, hasSplitPins } from './engines/balance.ts';
+import { firingHz, pitchDivisor, rpmForHz } from './engines/kinematics.ts';
 import { EngineSim, type SimInput } from './sim/engineSim.ts';
 import { voiceParamsFromSim } from './sim/bridge.ts';
 import { AudioEngine } from './audio/audioEngine.ts';
@@ -10,7 +20,7 @@ import { SONGS, chartFor, type ChartNote } from './music/songs.ts';
 import { RevHero, type Difficulty } from './game/revHero.ts';
 import { Stage } from './scene/stage.ts';
 import { makeMaterials } from './scene/materials.ts';
-import { EngineRig } from './scene/rig/rig.ts';
+import { createRig, type Rig } from './scene/rig/rig.ts';
 import { Tach } from './ui/tach.ts';
 import { FiringRing } from './ui/ring.ts';
 import { Spectrum } from './ui/spectrum.ts';
@@ -95,7 +105,7 @@ const ring = new FiringRing($('ring') as unknown as SVGSVGElement);
 const spectrum = new Spectrum($<HTMLCanvasElement>('spectrum'));
 const highway = new Highway($<HTMLCanvasElement>('highway'));
 const piano = new Piano($('piano'), (m) => noteOn(m), (m) => noteOff(m));
-let rig: EngineRig = new EngineRig(state.spec, mats);
+let rig: Rig = createRig(state.spec, mats);
 stage.scene.add(rig.root);
 rig.setXray(state.xray);
 
@@ -118,7 +128,10 @@ const card = $('card');
 const consoleEl = $('console');
 function layout() {
   const W = window.innerWidth;
-  const top = document.querySelector('.topbar')!.getBoundingClientRect().bottom + 8;
+  const bar = document.querySelector('.topbar')!.getBoundingClientRect();
+  const top = bar.bottom + 8;
+  // Eight engine chips can wrap onto a second line; keep the card and roll below them.
+  document.documentElement.style.setProperty('--top-h', `${Math.round(bar.height + 10)}px`);
   const cons = consoleEl.getBoundingClientRect();
   document.documentElement.style.setProperty('--console-h', `${Math.round(cons.height)}px`);
   const cardRect = card.getBoundingClientRect();
@@ -137,11 +150,20 @@ window.addEventListener('resize', () => {
 });
 
 // ---- Engine card ------------------------------------------------------------------------
-const LAYOUT_TEXT: Record<EngineSpec['layout'], (s: EngineSpec) => string> = {
+const LAYOUT_TEXT: Record<PistonSpec['layout'], (s: PistonSpec) => string> = {
   inline: (s) => `Inline, ${s.cylinders} in a row`,
-  v: (s) => `${s.vAngle}° V, two banks`,
+  v: (s) => `${s.vAngle}° V, two banks${hasSplitPins(s) ? ', split pins' : ''}`,
   flat: () => 'Horizontally opposed',
 };
+
+function ringCaption(spec: EngineSpec): string {
+  const hand = 'The hand follows the shaft in slow motion.';
+  if (spec.kind === 'rotary') {
+    return `Each dot is a rotor face firing, around one 1,080° cycle (three shaft turns). <span class="bank-a">Gold</span> is the front rotor, <span class="bank-b">blue</span> the rear. ${hand}`;
+  }
+  if (spec.layout === 'inline') return `Each dot is a cylinder firing, around one 720° cycle (two crank turns). ${hand}`;
+  return `Firing order around one 720° cycle. <span class="bank-a">Gold</span> and <span class="bank-b">blue</span> are the two banks. ${hand}`;
+}
 
 function renderCard(spec: EngineSpec) {
   $('card-role').textContent = `${spec.role} · ${spec.short}`;
@@ -149,16 +171,30 @@ function renderCard(spec: EngineSpec) {
   $('card-example').textContent = spec.example;
   const r = playableRange(spec);
   const concertA = rpmForHz(spec, 440);
+  const shapeRows: [string, string][] =
+    spec.kind === 'rotary'
+      ? [
+          ['Layout', `${spec.rotors} rotors, Wankel`],
+          ['Displacement', `${displacementLitres(spec).toFixed(1)} L (${spec.rotors} × ${Math.round(wankelChamberCc(spec))} cc)`],
+          ['Rotor R × e × width', `${spec.generatingRadius} × ${spec.eccentricity} × ${spec.rotorWidth} mm`],
+          ['Firing order', 'front, rear, front…'],
+        ]
+      : [
+          ['Layout', LAYOUT_TEXT[spec.layout](spec)],
+          ['Displacement', `${displacementLitres(spec).toFixed(1)} L`],
+          ['Bore × stroke', `${spec.bore} × ${spec.stroke} mm`],
+          ['Firing order', spec.firingOrder.join('-')],
+        ];
   const rows: [string, string][] = [
-    ['Layout', LAYOUT_TEXT[spec.layout](spec)],
-    ['Displacement', `${displacementLitres(spec).toFixed(1)} L`],
-    ['Bore × stroke', `${spec.bore} × ${spec.stroke} mm`],
-    ['Firing order', spec.firingOrder.join('-')],
+    ...shapeRows,
+    ['Fires every', `${firingInterval(spec)}° of shaft`],
     ['Idle → redline', `${fmt(spec.idleRpm)} → ${fmt(spec.redlineRpm)}`],
     ['Note range', `${noteName(r.low)} – ${noteName(r.high)}`],
-    ['Pitch', `RPM ÷ ${120 / spec.cylinders}`],
+    ['Pitch', `RPM ÷ ${fmt(pitchDivisor(spec))}`],
     ['A 440 Hz at', concertA <= spec.redlineRpm && concertA >= spec.idleRpm ? `${fmt(concertA)} rpm` : 'out of range'],
   ];
+  $('tagline-formula').textContent = `RPM ÷ ${fmt(pitchDivisor(spec))}`;
+  $('ring-caption').innerHTML = ringCaption(spec);
   const dl = $('card-specs');
   dl.replaceChildren();
   for (const [k, v] of rows) {
@@ -170,6 +206,11 @@ function renderCard(spec: EngineSpec) {
   }
   $('card-why').textContent = spec.why;
   $('limit-text').textContent = fmt(spec.limiterRpm);
+  if (spec.kind === 'rotary') {
+    $('shake-note').textContent =
+      'Nothing reciprocates: the rotors only spin and orbit, and counterweights on the eccentric shaft cancel that completely.';
+    return;
+  }
   const b = balanceSummary(spec);
   const notes: string[] = [];
   if (b.primaryForce > 1e-6) notes.push('a first-order force');
@@ -184,6 +225,11 @@ function renderCard(spec: EngineSpec) {
 const balanceCache = new Map<EngineId, ReturnType<typeof balanceSummary>>();
 function updateShakeMeter() {
   const spec = state.spec;
+  if (spec.kind === 'rotary') {
+    $('shake-value').textContent = '0.0 kN';
+    $('shake-bar').style.width = '0%';
+    return;
+  }
   let b = balanceCache.get(spec.id);
   if (!b) {
     b = balanceSummary(spec);
@@ -219,10 +265,14 @@ function markChips() {
 
 function applyEngine(spec: EngineSpec, immediate: boolean) {
   state.spec = spec;
+  let turnTo: THREE.Vector3 | undefined;
   if (rig.spec !== spec) {
+    const before = rig.viewDir;
     rig.dispose();
-    rig = new EngineRig(spec, mats);
+    rig = createRig(spec, mats);
     stage.scene.add(rig.root);
+    // Only swing the camera when the new engine is best seen from a different side.
+    if (!before.equals(rig.viewDir)) turnTo = rig.viewDir;
   }
   rig.setXray(state.xray);
   sim.setEngine(spec);
@@ -233,7 +283,7 @@ function applyEngine(spec: EngineSpec, immediate: boolean) {
   renderCard(spec);
   markChips();
   layout();
-  stage.frame(rig.center, rig.radius, immediate || reducedMotion);
+  stage.frame(rig.center, rig.radius, immediate || reducedMotion, immediate ? rig.viewDir : turnTo);
   savePrefs();
 }
 
@@ -470,7 +520,7 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (typing(e)) return;
-  if (/^Digit[1-6]$/.test(e.code)) {
+  if (/^Digit[1-8]$/.test(e.code)) {
     selectEngine(ENGINES[Number(e.code.slice(5)) - 1].id);
     return;
   }
@@ -505,7 +555,7 @@ $('start').addEventListener('click', async () => {
   }
   state.started = true;
   sim.start();
-  window.setTimeout(() => toast('Hold Space or the pedal to rev. Keys 1 to 6 swap engines.'), 1600);
+  window.setTimeout(() => toast('Hold Space or the pedal to rev. Keys 1 to 8 swap engines.'), 1600);
 });
 
 document.addEventListener('visibilitychange', () => {
@@ -592,7 +642,7 @@ function frame(now: number) {
   state.heat += (heatTarget - state.heat) * Math.min(1, dt / (heatTarget > state.heat ? 3 : 7));
 
   const slow = state.slowmo ? spec.redlineRpm / 240 : 1;
-  state.cycle = (state.cycle + (sim.rpm * 6 * dt) / slow) % 720;
+  state.cycle = (state.cycle + (sim.rpm * 6 * dt) / slow) % spec.cycleDeg;
   rig.update({
     cycle: state.cycle,
     rpm: sim.rpm,
@@ -668,6 +718,7 @@ requestAnimationFrame(frame);
 // Hooks for automated checks.
 (window as unknown as { __redline: unknown }).__redline = {
   state,
+  stage,
   sim,
   audio,
   selectEngine,

@@ -6,8 +6,8 @@
 // (e^{−iθ}). Crank counterweights can only cancel the first-order part that rotates with
 // the crank, so that is removed. What is left is what the engine mounts actually feel.
 
-import { axisOf, type EngineSpec } from './catalog.ts';
-import { DEG, tdcAngles } from './kinematics.ts';
+import { axisOf, type PistonSpec } from './catalog.ts';
+import { DEG, mod, pinAngles, tdcAngles } from './kinematics.ts';
 
 type C = [number, number];
 
@@ -17,9 +17,20 @@ const scale = (a: C, k: number): C => [a[0] * k, a[1] * k];
 const mul = (a: C, b: C): C => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]];
 const abs = (a: C) => Math.hypot(a[0], a[1]);
 
+/** True when the two cylinders on a V-engine throw sit on separate, angled pins. */
+export function hasSplitPins(spec: PistonSpec): boolean {
+  if (spec.layout !== 'v') return false;
+  const pins = pinAngles(spec);
+  return spec.row.some((r, i) =>
+    spec.row.some((r2, j) => j > i && r2 === r && Math.abs(mod(pins[i] - pins[j] + 180, 360) - 180) > 1e-6),
+  );
+}
+
 /** Position of each cylinder along the crank, in throw pitches, centred on zero. */
-export function crankPositions(spec: EngineSpec): number[] {
-  const bankOffset = spec.layout === 'flat' ? 0.5 : spec.layout === 'v' ? 0.28 : 0;
+export function crankPositions(spec: PistonSpec): number[] {
+  // Split pins need room for a thin "flying web" between the two rods.
+  const vOffset = hasSplitPins(spec) ? 0.36 : 0.28;
+  const bankOffset = spec.layout === 'flat' ? 0.5 : spec.layout === 'v' ? vOffset : 0;
   const xs = spec.row.map((r, i) => r + spec.bankOf[i] * bankOffset);
   const mean = xs.reduce((s, x) => s + x, 0) / xs.length;
   return xs.map((x) => x - mean);
@@ -36,7 +47,7 @@ export interface BalanceCoefficients {
   lambda: number;
 }
 
-export function balanceCoefficients(spec: EngineSpec): BalanceCoefficients {
+export function balanceCoefficients(spec: PistonSpec): BalanceCoefficients {
   const tdc = tdcAngles(spec);
   const xs = crankPositions(spec);
   const lambda = spec.stroke / 2 / spec.rodLength;
@@ -74,7 +85,7 @@ export interface BalanceSummary {
   secondaryCouple: number;
 }
 
-export function balanceSummary(spec: EngineSpec): BalanceSummary {
+export function balanceSummary(spec: PistonSpec): BalanceSummary {
   const c = balanceCoefficients(spec);
   // A forward plus a backward rotating vector peaks at the sum of their lengths.
   return {
@@ -96,7 +107,7 @@ export interface Shake {
 
 /** Instantaneous residual shake at crank angle θ (deg) and engine speed (rpm). */
 export function shakeAt(
-  spec: EngineSpec,
+  spec: PistonSpec,
   c: BalanceCoefficients,
   crankDeg: number,
   rpm: number,

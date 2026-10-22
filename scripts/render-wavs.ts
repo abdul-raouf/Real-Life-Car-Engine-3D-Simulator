@@ -86,7 +86,7 @@ for (const spec of ENGINES) {
   report.push(`${spec.id.padEnd(4)} idle ${rmsDb(l, Math.round(SR * 2.2), Math.round(SR * 3.1)).toFixed(1)} dB   limiter ${rmsDb(l, Math.round(SR * 7.5), Math.round(SR * 8.3)).toFixed(1)} dB`);
 }
 
-// 2. Same note, six engines: A3 (220 Hz) where it fits, otherwise A in the nearest octave.
+// 2. Same note on every engine: A3 (220 Hz) where it fits, otherwise A in the nearest octave.
 {
   const parts: { l: Float32Array; r: Float32Array }[] = [];
   for (const spec of ENGINES) {
@@ -110,7 +110,7 @@ for (const spec of ENGINES) {
     }
     o += p.l.length;
   }
-  writeWav('same-note-six-engines.wav', l, r);
+  writeWav('same-note-all-engines.wav', l, r);
 }
 
 // 3. The ECU plays songs.
@@ -140,5 +140,7 @@ function playSong(spec: EngineSpec, songId: string, file: string) {
 playSong(ENGINE_BY_ID.v8, 'saints', 'saints-v8.wav');
 playSong(ENGINE_BY_ID.v10, 'saints', 'saints-v10.wav');
 playSong(ENGINE_BY_ID.v12, 'ode', 'ode-v12.wav');
+playSong(ENGINE_BY_ID.r2, 'saints', 'saints-r2.wav');
+playSong(ENGINE_BY_ID.v6, 'twinkle', 'twinkle-v6.wav');
 
 console.log(report.join('\n'));

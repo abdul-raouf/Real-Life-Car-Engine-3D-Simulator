@@ -56,7 +56,7 @@ export class Stage {
   private bloom: UnrealBloomPass;
   private floor: THREE.Mesh;
   private fog: THREE.Fog;
-  private camGoal: { target: THREE.Vector3; distance: number } | null = null;
+  private camGoal: { target: THREE.Vector3; distance: number; dir: THREE.Vector3 | null } | null = null;
   private lastInteraction = -Infinity;
   private focus: { w: number; h: number; W: number; H: number } | null = null;
   private frameTime = 1 / 60;
@@ -174,7 +174,7 @@ export class Stage {
   }
 
   /** Glide the camera to frame an object of this radius around this point. */
-  frame(center: THREE.Vector3, radius: number, immediate = false) {
+  frame(center: THREE.Vector3, radius: number, immediate = false, viewDir?: THREE.Vector3) {
     const f = this.focus;
     const vHalf = Math.atan(Math.tan((this.camera.fov * Math.PI) / 360) * (f ? f.h / f.H : 1));
     const aspect = f ? f.w / f.h : this.camera.aspect;
@@ -185,11 +185,11 @@ export class Stage {
     target.y -= radius * 0.06;
     if (immediate) {
       this.controls.target.copy(target);
-      const dir = this.camera.position.clone().sub(this.controls.target).normalize();
+      const dir = viewDir ? viewDir.clone().normalize() : this.camera.position.clone().sub(this.controls.target).normalize();
       this.camera.position.copy(target).addScaledVector(dir, distance);
       this.camGoal = null;
     } else {
-      this.camGoal = { target, distance };
+      this.camGoal = { target, distance, dir: viewDir ? viewDir.clone().normalize() : null };
     }
   }
 
@@ -224,8 +224,12 @@ export class Stage {
       const dir = this.camera.position.clone().sub(this.controls.target);
       const d = dir.length();
       const nd = d + (this.camGoal.distance - d) * k;
-      this.camera.position.copy(this.controls.target).addScaledVector(dir.normalize(), nd);
-      if (Math.abs(nd - this.camGoal.distance) < 0.002 && this.controls.target.distanceTo(this.camGoal.target) < 0.002) {
+      dir.normalize();
+      const goalDir = this.camGoal.dir;
+      if (goalDir) dir.lerp(goalDir, k).normalize();
+      this.camera.position.copy(this.controls.target).addScaledVector(dir, nd);
+      const turned = !goalDir || dir.angleTo(goalDir) < 0.002;
+      if (turned && Math.abs(nd - this.camGoal.distance) < 0.002 && this.controls.target.distanceTo(this.camGoal.target) < 0.002) {
         this.camGoal = null;
       }
     }

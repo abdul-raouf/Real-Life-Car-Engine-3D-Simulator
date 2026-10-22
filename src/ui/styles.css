@@ -840,6 +840,12 @@ select {
   :root {
     --top-h: 112px;
   }
+  /* More engines than fit: fade the right edge so the row reads as scrollable. */
+  .engines {
+    -webkit-mask-image: linear-gradient(90deg, #000 82%, transparent);
+    mask-image: linear-gradient(90deg, #000 82%, transparent);
+    padding-right: 28px;
+  }
   .card {
     display: none;
     top: auto;

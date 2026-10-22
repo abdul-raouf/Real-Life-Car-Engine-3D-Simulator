@@ -11,7 +11,7 @@
 //   5. Soft saturation and a DC blocker finish the signal.
 
 import type { EngineSpec } from '../engines/catalog.ts';
-import { VALVE_EVENTS, firingAngles, mod } from '../engines/kinematics.ts';
+import { chamberEvents, firingAngles, mod } from '../engines/kinematics.ts';
 
 export interface VoiceParams {
   rpm: number;
@@ -43,6 +43,7 @@ const COMB_MASK = COMB - 1;
 const EV_EXHAUST = 0;
 const EV_INTAKE = 1;
 const EV_CLOSE = 2;
+const EV_INJECT = 3;
 
 interface EngineEvent {
   angle: number;
@@ -123,6 +124,7 @@ export class EngineDsp {
   private readonly smooth: number;
 
   private phase = 0;
+  private cycleLen = 720;
   private evIdx = 0;
   private events: EngineEvent[] = [];
   private readPos = 0;
@@ -174,18 +176,29 @@ export class EngineDsp {
     this.panL = v.pan.map((p) => Math.cos(((p + 1) * Math.PI) / 4));
     this.panR = v.pan.map((p) => Math.sin(((p + 1) * Math.PI) / 4));
     this.center.fill(0);
-    this.cylTrim = Array.from({ length: spec.cylinders }, () =>
+    this.cylTrim = Array.from({ length: spec.chambers }, () =>
       this.deterministic ? 1 : 1 + (this.rand() - 0.5) * 0.12,
     );
     this.delaySamples = spec.headerDelayMs.map((ms) => (ms * this.sr) / 1000);
 
     const fire = firingAngles(spec);
+    const ce = chamberEvents(spec);
+    const cyc = spec.cycleDeg;
+    this.cycleLen = cyc;
+    this.phase = mod(this.phase, cyc);
     const evs: EngineEvent[] = [];
     fire.forEach((f, cyl) => {
-      evs.push({ angle: mod(f + VALVE_EVENTS.exhaustOpen, 720), kind: EV_EXHAUST, cyl });
-      evs.push({ angle: mod(f + VALVE_EVENTS.intakeOpen, 720), kind: EV_INTAKE, cyl });
-      evs.push({ angle: mod(f + VALVE_EVENTS.exhaustClose, 720), kind: EV_CLOSE, cyl });
-      evs.push({ angle: mod(f + VALVE_EVENTS.intakeClose, 720), kind: EV_CLOSE, cyl });
+      evs.push({ angle: mod(f + ce.exhaustOpen, cyc), kind: EV_EXHAUST, cyl });
+      evs.push({ angle: mod(f + ce.intakeOpen, cyc), kind: EV_INTAKE, cyl });
+      if (spec.kind === 'piston') {
+        // Valves seating: the valvetrain's tick. A rotary has no valves.
+        evs.push({ angle: mod(f + ce.exhaustClose, cyc), kind: EV_CLOSE, cyl });
+        evs.push({ angle: mod(f + ce.intakeClose, cyc), kind: EV_CLOSE, cyl });
+      }
+      if (v.injector) {
+        // Direct injection fires early in the intake stroke.
+        evs.push({ angle: mod(f + ce.intakeOpen + 0.3 * (ce.intakeClose - ce.intakeOpen), cyc), kind: EV_INJECT, cyl });
+      }
     });
     evs.sort((a, b) => a.angle - b.angle);
     this.events = evs;
@@ -239,7 +252,7 @@ export class EngineDsp {
 
   /** Render a blowdown pulse into a ring buffer, starting `offset` samples from now. */
   private renderPulse(ring: Float32Array, offset: number, width: number, amp: number, noise: number) {
-    const u0 = 0.12;
+    const u0 = this.spec.voice.attack ?? 0.12;
     const start = Math.ceil(offset);
     const end = Math.min(RING - 1, Math.floor(offset + width));
     for (let k = start; k <= end; k++) {
@@ -292,6 +305,19 @@ export class EngineDsp {
       }
     } else if (ev.kind === EV_INTAKE) {
       this.intakeEnv = Math.min(1.6, this.intakeEnv + 0.7);
+    } else if (ev.kind === EV_INJECT) {
+      if (this.deterministic || !v.injector || this.target.cut) return;
+      // High-pressure injector: a short metallic click, louder at light load where it is not masked.
+      const amp = v.injector * 0.05 * (0.6 + 0.4 * (1 - this.load));
+      const width = 0.0011 * this.sr;
+      const start = Math.ceil(frac);
+      const w = (2 * Math.PI * 4300) / this.sr;
+      for (let k = start; k <= start + width; k++) {
+        const t = k - frac;
+        const env = Math.exp(-t / (0.00025 * this.sr));
+        const s = 0.65 * Math.sin(w * t) + 0.35 * (this.rand() * 2 - 1);
+        this.center[(this.readPos + k) & RING_MASK] += amp * env * s;
+      }
     } else if (!this.deterministic && v.mech > 0) {
       const amp = v.mech * 0.045 * (0.35 + this.rpm / spec.redlineRpm);
       const width = 0.0007 * this.sr;
@@ -333,9 +359,9 @@ export class EngineDsp {
           const ev = events[this.evIdx++];
           this.trigger(ev, (ev.angle - this.phase) / dPhase, dPhase);
         }
-        if (next >= 720) {
-          next -= 720;
-          this.phase -= 720;
+        if (next >= this.cycleLen) {
+          next -= this.cycleLen;
+          this.phase -= this.cycleLen;
           this.evIdx = 0;
           while (this.evIdx < ne && events[this.evIdx].angle <= next) {
             const ev = events[this.evIdx++];

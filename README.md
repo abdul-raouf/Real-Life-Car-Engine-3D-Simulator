@@ -1,7 +1,8 @@
 # Redline Recital
 
-Six engines on a studio stand, each tuned like an instrument. An engine's note is its
-firing frequency, **RPM × cylinders ÷ 120**, so a V8 at 3,300 rpm hums A3 (220 Hz).
+Eight engines on a studio stand, each tuned like an instrument. An engine's note is its
+firing frequency: **RPM × cylinders ÷ 120** for a four-stroke, **RPM × rotors ÷ 60** for a
+Wankel. A V8 at 3,300 rpm hums A3 (220 Hz).
 Rev them, play them from a keyboard, or chase a melody with the throttle in Rev Hero.
 
 | Engine | Firing order | Pitch | Range |
@@ -12,6 +13,8 @@ Rev them, play them from a keyboard, or chase a melody with the throttle in Rev 
 | Crossplane V8 | 1-8-7-2-6-5-4-3 | RPM ÷ 15 | lead |
 | 60° V12 | 1-7-5-11-3-9-6-12-2-8-4-10 | RPM ÷ 10 | tenor |
 | 72° F1-style V10 | 1-6-2-7-4-9-5-10-3-8 | RPM ÷ 12 | soprano |
+| Lexus 4GR-FSE 60° V6, split-pin crank | 1-2-3-4-5-6 | RPM ÷ 20 | percussion (direct-injection tick) |
+| Mazda Renesis 13B two-rotor | rotors alternate every 180° | RPM ÷ 30 | siren |
 
 ## Run it
 
@@ -28,6 +31,13 @@ npm run render-wavs  # offline renders of every engine into out/
 Everything comes from the engine catalog (`src/engines/catalog.ts`). Nothing is a
 recording or a downloaded model.
 
+- **Chambers and cycles**: every engine is described by its combustion chambers and the
+  shaft degrees one chamber needs for a full cycle: 720° for a four-stroke cylinder,
+  1,080° for a Wankel rotor face. Pitch, timing, the voice and the firing ring all use these.
+- **Wankel geometry** (`src/engines/wankel.ts`): epitrochoid housing, rotor pose (orbit at
+  e, turning at ⅓ shaft speed), the rotor flank computed as the housing's inner envelope,
+  and the firing order derived from the geometry. Tests check the rotor never touches
+  the housing and the chamber volume is 654 cc.
 - **Kinematics** (`src/engines/kinematics.ts`): even firing angles from the firing order.
   Crank-pin angles come from each bore's axis, then slider-crank piston motion and valve lift.
   Tests check that every firing order matches a real crankshaft: shared V-engine pins line
@@ -57,6 +67,9 @@ recording or a downloaded model.
 - The camera runs in slow motion by default (1/redline÷240 of real speed) so the crank
   is readable. The sound is always real time.
 - The V10 firing order is geometrically consistent and F1-style, not a specific team's.
+- 4GR-FSE bore, stroke, V angle and injection are factory figures; its rod length, idle
+  and redline are estimates. Renesis R, e, width and redline are factory figures; its
+  idle and port timing are estimates.
 
 ## Publishing
 

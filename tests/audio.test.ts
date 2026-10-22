@@ -91,13 +91,13 @@ describe('engine voice behaviour', () => {
     expect(rms(cut.l, from)).toBeLessThan(0.6 * rms(on.l, from));
   });
 
-  it('fires exactly one exhaust pulse per cylinder every two revolutions', () => {
-    const spec = ENGINE_BY_ID.v12;
+  it.each(['v12', 'r2'] as const)('%s fires one exhaust pulse per chamber per cycle', (id) => {
+    const spec = ENGINE_BY_ID[id];
     const rpm = 3000;
     const seconds = 1;
     const { dsp } = render(spec, { rpm }, seconds);
-    const expected = (rpm / 60 / 2) * spec.cylinders * seconds;
-    expect(Math.abs(dsp.pulses - expected)).toBeLessThanOrEqual(spec.cylinders);
+    const expected = (rpm / 60 / (spec.cycleDeg / 360)) * spec.chambers * seconds;
+    expect(Math.abs(dsp.pulses - expected)).toBeLessThanOrEqual(spec.chambers);
   });
 
   it('crossplane V8: each exhaust bank is lumpy, which is the burble', () => {
