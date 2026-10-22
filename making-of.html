@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>How Redline Recital Was Made</title>
+    <meta
+      name="description"
+      content="Case study: how one sentence became Redline Recital, eight 3D engines tuned like musical instruments, directed by Abdul Raouf and built with Claude Code in about two hours."
+    />
+    <meta name="theme-color" content="#111318" />
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <meta property="og:type" content="article" />
+    <meta property="og:site_name" content="Redline Recital" />
+    <meta property="og:title" content="How Redline Recital was made" />
+    <meta property="og:description" content="One sentence became eight 3D engines tuned like instruments in about two hours. Directed by Abdul Raouf, built with Claude Code." />
+    <meta property="og:url" content="%SITE_URL%/making-of.html" />
+    <meta property="og:image" content="%SITE_URL%/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=Big+Shoulders+Display:wght@600;800&family=Martian+Mono:wght@400;600&display=swap"
+    />
+  </head>
+  <body class="doc">
+    <header class="doc-top">
+      <a class="doc-back" href="./">← Back to the engines</a>
+      <a class="btn primary" href="#contact">Work with me</a>
+    </header>
+
+    <main class="doc-main">
+      <p class="eyebrow">Case study</p>
+      <h1 class="doc-title">From one sentence to eight singing engines</h1>
+      <p class="lede">
+        Redline Recital is an interactive 3D website where every engine is a musical instrument. I directed it and Claude
+        Code researched, built and tested it, in one working session of about two hours.
+      </p>
+
+      <figure class="doc-figure wide">
+        <img src="./media/hero-v8.jpg" width="1600" height="1000" alt="The crossplane V8 on its stand in a dark studio, mid-rev with glowing headers, with the tachometer, piano keyboard and engine notes around it." />
+        <figcaption>The crossplane V8 holding E4 at 4,940 rpm. The headers glow with load and the piano shows the note being held.</figcaption>
+      </figure>
+
+      <dl class="stats">
+        <div><dt>Engines</dt><dd>8</dd></div>
+        <div><dt>Automated tests</dt><dd>146</dd></div>
+        <div><dt>Lines of code</dt><dd>~6,900</dd></div>
+        <div><dt>Download</dt><dd>186 KB</dd></div>
+        <div><dt>Brief to first version</dt><dd>~1 hour</dd></div>
+        <div><dt>Recordings or 3D models used</dt><dd>0</dd></div>
+      </dl>
+
+      <section>
+        <h2>The brief</h2>
+        <blockquote>
+          “Lets make a real 3D interactive car engine website. I want you to research and comeback with a fun and creative
+          idea.”
+        </blockquote>
+        <p>That was the whole brief. I wanted to see how far a clear direction and good judgement calls could take an AI build.</p>
+      </section>
+
+      <section>
+        <h2>Research changed the idea</h2>
+        <p>
+          Before writing any code, Claude looked at what already existed. The obvious idea, a 3D engine you can rotate,
+          take apart and rev, has been done well several times: Bartosz Ciechanowski's
+          <a href="https://ciechanow.ski/internal-combustion-engine/" rel="noopener" target="_blank">engine explainer</a>,
+          <a href="https://discourse.threejs.org/t/cranklab-interactive-engine-explorer-with-procedural-geometry-and-sound/95093" rel="noopener" target="_blank">CrankLab</a>,
+          and AngeTheGreat's famously realistic
+          <a href="https://www.thedrive.com/news/new-3d-engine-sim-can-synthesize-super-realistic-exhaust-sounds-in-real-time" rel="noopener" target="_blank">engine simulator</a>.
+          Building another one would have been a copy.
+        </p>
+        <p>
+          The research turned up a better angle. An engine's pitch is its firing frequency, RPM × cylinders ÷ 120, so a V8
+          at 3,300 rpm hums the note A3 at exactly 220 Hz. In 2003 an F1 team programmed a V10 to play
+          <em>When the Saints Go Marching In</em> this way. Nobody seemed to have made that playable in a browser, so that
+          became the concept. <strong>Every engine is an instrument.</strong>
+        </p>
+      </section>
+
+      <section>
+        <h2>Who decided what</h2>
+        <div class="split">
+          <div class="split-col">
+            <h3>I decided</h3>
+            <ul>
+              <li>The brief, and which of three proposed concepts to build</li>
+              <li>The look: a dark photo studio with polished metal and a glass cutaway</li>
+              <li>Where it lives, and how it is credited</li>
+              <li>To add a Mazda rotary and the Lexus 4GR-FSE V6, and which rotary: the RX-8's Renesis</li>
+              <li>To turn it into this portfolio piece</li>
+            </ul>
+          </div>
+          <div class="split-col">
+            <h3>Claude Code did</h3>
+            <ul>
+              <li>Researched existing engine sites and the physics, and found the gap</li>
+              <li>Proposed three concepts with honest trade-offs and limits</li>
+              <li>Wrote the physics, the sound synthesis, the 3D models and the interface</li>
+              <li>Wrote 146 tests, checked every screen in a browser at desktop and phone sizes</li>
+              <li>Reported what it could not check, such as how the sound feels to a human ear</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>How it works</h2>
+        <ul class="facts">
+          <li>
+            <strong>Real crankshafts.</strong> Each engine's firing order is checked against its crank geometry. The V8 comes out
+            as a true crossplane, and the 60° V6 needs split crank pins offset by 60° to fire evenly, which the 3D crank shows.
+          </li>
+          <li>
+            <strong>Real shaking.</strong> The engines rock on their mounts according to the forces their pistons actually leave
+            unbalanced. The inline-4 buzzes; the inline-6 and V12 sit still.
+          </li>
+          <li>
+            <strong>A real rotary.</strong> The Wankel's rotor shape is computed as the largest shape that fits inside its housing
+            at every shaft angle. A test checks it never touches the housing, and the chamber volume comes out at Mazda's 654 cc.
+          </li>
+          <li>
+            <strong>Sound from physics.</strong> Nothing is recorded. Each cylinder's exhaust pulse is synthesised at the moment
+            its valve opens, then shaped by the pipes, so the V8's burble and the boxer's rumble come out of the firing order itself.
+          </li>
+        </ul>
+        <figure class="doc-figure wide">
+          <img src="./media/rotary.jpg" width="1600" height="1000" loading="lazy" alt="The Renesis rotary at its 9,000 rpm redline, with glass housings, glowing exhaust headers and the firing ring labelled by rotor face." />
+          <figcaption>The Renesis rotary at 9,000 rpm. The firing ring shows the two rotors taking turns every 180° of shaft rotation.</figcaption>
+        </figure>
+      </section>
+
+      <section>
+        <h2>How I know it's right</h2>
+        <p>
+          The core claim is that each engine sounds at its firing frequency, so every engine is tested for exactly that:
+          the test renders the sound, detects its pitch and requires it to land within 1% of the formula. The other tests cover
+          the crankshafts, balance, the rotary's geometry, rev limiters, note holding and the game's scoring.
+        </p>
+        <figure class="doc-figure wide">
+          <img src="./media/spectrogram-saints-v8.jpg" width="1200" height="340" loading="lazy" alt="Spectrogram of the V8 playing When the Saints Go Marching In: bright horizontal steps follow the melody across a grid of musical notes." />
+          <figcaption>A spectrogram of the V8 playing <em>When the Saints Go Marching In</em>. Each bright step lands on a note.</figcaption>
+        </figure>
+        <p>Checking found real problems, and each one was fixed before shipping:</p>
+        <ul class="facts">
+          <li>The "ECU" that holds a note took almost two seconds to settle because its controller wound up. A test caught it; it now settles in under 0.6 seconds.</li>
+          <li>The first render floated the engine high above its stand, because an invisible glow effect counted toward its size. A screenshot review caught it.</li>
+          <li>The boxer's unequal exhaust headers were first set too long and smeared its pitch. They were cut to realistic lengths and checked with a spectrum test.</li>
+          <li>The rotary's rotors were hidden behind the front pulley. That engine now gets its own camera angle and a smaller pulley.</li>
+          <li>A slow test browser showed the sound falling behind when frames drop. The engine now runs on real time, so slow devices still sound right.</li>
+        </ul>
+      </section>
+
+      <section id="listen">
+        <h2>Listen</h2>
+        <div class="clips">
+          <figure class="clip">
+            <figcaption>The V8 plays <em>When the Saints Go Marching In</em></figcaption>
+            <audio controls preload="none" src="./media/saints-v8.mp3"></audio>
+          </figure>
+          <figure class="clip">
+            <figcaption>The same note, A, on all eight engines</figcaption>
+            <audio controls preload="none" src="./media/same-note-all-engines.mp3"></audio>
+          </figure>
+          <figure class="clip">
+            <figcaption>The rotary: start, idle, blips, the 9,200 rpm limiter, coast down</figcaption>
+            <audio controls preload="none" src="./media/r2-tour.mp3"></audio>
+          </figure>
+          <figure class="clip">
+            <figcaption>The F1-style V10 screaming to 19,000 rpm</figcaption>
+            <audio controls preload="none" src="./media/v10-tour.mp3"></audio>
+          </figure>
+        </div>
+      </section>
+
+      <section>
+        <h2>What it doesn't do</h2>
+        <ul class="facts">
+          <li>The sound is synthesised. Its pitch and rhythm follow the physics, but it will not fool you into thinking it is a recording.</li>
+          <li>The camera runs in slow motion by default so you can follow the crank. The sound always plays in real time.</li>
+          <li>Some engine figures are estimates where no published source exists, such as the V6's rod length and the rotary's port timing.</li>
+        </ul>
+      </section>
+
+      <section class="cta" id="contact">
+        <h2>Want something like this built?</h2>
+        <p>
+          I direct AI tools to research, design and ship interactive products quickly, and I check the work properly before it
+          goes out. Tell me what you need.
+        </p>
+        <p class="contact-email" id="doc-email">abdul.raouf9899@gmail.com</p>
+        <div class="contact-actions">
+          <button class="btn" id="doc-copy" type="button">Copy email</button>
+          <a class="btn primary" href="mailto:abdul.raouf9899@gmail.com?subject=Project%20enquiry%20(Redline%20Recital)">Email me</a>
+          <a class="btn" href="./">Play with the engines</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="doc-foot">
+      <p>Redline Recital · By Abdul Raouf · Built with Claude Code</p>
+    </footer>
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+    <script type="module" src="./src/makingOf.ts"></script>
+  </body>
+</html>

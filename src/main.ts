@@ -1,4 +1,3 @@
-import './ui/styles.css';
 import type * as THREE from 'three';
 import {
   ENGINES,
@@ -510,7 +509,11 @@ highwayEl.addEventListener('pointerup', () => {
 });
 
 // ---- Keyboard ------------------------------------------------------------------------------
-const typing = (e: KeyboardEvent) => e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement;
+const typing = (e: KeyboardEvent) =>
+  e.target instanceof HTMLInputElement ||
+  e.target instanceof HTMLSelectElement ||
+  // Links and buttons in the credit and contact areas keep their normal keyboard behaviour.
+  (e.target instanceof Element && !!e.target.closest('[data-native-keys]'));
 window.addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (e.code === 'Space') {
@@ -541,6 +544,40 @@ window.addEventListener('keyup', (e) => {
   }
 });
 window.addEventListener('blur', releaseAll);
+
+// ---- Credit and contact -----------------------------------------------------------------------
+const contact = $('contact');
+const hire = $<HTMLButtonElement>('hire');
+function showContact(open: boolean) {
+  contact.hidden = !open;
+  hire.setAttribute('aria-expanded', String(open));
+  if (open) $('contact-copy-btn').focus();
+}
+hire.addEventListener('click', () => showContact(contact.hidden));
+$('contact-close').addEventListener('click', () => {
+  showContact(false);
+  hire.focus();
+});
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !contact.hidden) showContact(false);
+});
+$('contact-copy-btn').addEventListener('click', () => {
+  const emailEl = $('contact-email');
+  const email = emailEl.textContent?.trim() ?? '';
+  const selectIt = () => {
+    const range = document.createRange();
+    range.selectNodeContents(emailEl);
+    const sel = window.getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+    toast('Email selected. Press Ctrl+C (or ⌘C) to copy.');
+  };
+  try {
+    navigator.clipboard.writeText(email).then(() => toast('Email copied.'), selectIt);
+  } catch {
+    selectIt();
+  }
+});
 
 // ---- Start ----------------------------------------------------------------------------------
 const gate = $('gate');
@@ -709,6 +746,9 @@ function frame(now: number) {
 }
 
 // ---- Boot ------------------------------------------------------------------------------------
+const startBtn = $<HTMLButtonElement>('start');
+startBtn.disabled = false;
+startBtn.textContent = 'Start the engine';
 setDifficulty('easy');
 applyEngine(state.spec, true);
 layout();
@@ -719,6 +759,7 @@ requestAnimationFrame(frame);
 (window as unknown as { __redline: unknown }).__redline = {
   state,
   stage,
+  frameEngine: () => stage.frame(rig.center, rig.radius, true),
   sim,
   audio,
   selectEngine,

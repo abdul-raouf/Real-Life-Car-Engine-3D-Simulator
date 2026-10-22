@@ -164,6 +164,97 @@ kbd {
   font-family: var(--font-data);
   font-size: 12px;
 }
+.byline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 7px;
+  margin: 5px 0 0;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.byline .dot {
+  opacity: 0.6;
+}
+.byline a,
+.link-btn,
+.gate-credit a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--gold);
+  text-underline-offset: 3px;
+}
+.link-btn {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: inherit;
+  cursor: pointer;
+}
+.byline .link-btn {
+  font-weight: 600;
+  color: var(--gold);
+}
+.contact {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + var(--top-h));
+  left: var(--gutter-l);
+  width: min(380px, calc(100% - 32px));
+  padding: 16px 18px 18px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--surface-solid);
+  box-shadow: var(--shadow);
+  z-index: 7;
+  display: grid;
+  gap: 10px;
+}
+.contact[hidden] {
+  display: none;
+}
+.contact-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+.contact-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 26px;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.contact-copy {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+.contact-email {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px dashed var(--line);
+  font-family: var(--font-data);
+  font-size: 13px;
+  user-select: all;
+  overflow-wrap: anywhere;
+}
+.contact-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+a.btn {
+  text-decoration: none;
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+}
+a.btn.primary {
+  color: #16120a;
+}
 .engines {
   display: flex;
   gap: 6px;
@@ -659,6 +750,10 @@ select {
 }
 .btn.primary:hover {
   filter: brightness(1.08);
+}
+.btn:disabled {
+  opacity: 0.6;
+  cursor: progress;
 }
 .btn.big {
   font-size: 17px;

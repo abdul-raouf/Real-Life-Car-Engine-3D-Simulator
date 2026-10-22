@@ -5,6 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Redline Recital</title>
     <meta name="claude:viewport-fit-sides" content="cover" />
+    <meta
+      name="description"
+      content="Eight 3D engines tuned like musical instruments. Rev them, play them from a keyboard, or chase a melody with the throttle. By Abdul Raouf, built with Claude Code."
+    />
+    <meta name="theme-color" content="#111318" />
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Redline Recital" />
+    <meta property="og:title" content="Redline Recital" />
+    <meta property="og:description" content="Eight 3D engines tuned like musical instruments. A V8 at 3,300 rpm hums A3. By Abdul Raouf, built with Claude Code." />
+    <meta property="og:url" content="%SITE_URL%/" />
+    <meta property="og:image" content="%SITE_URL%/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Redline Recital: a glowing V8 on a studio stand beside the title." />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -20,6 +36,12 @@
         <div class="brand">
           <h1 class="wordmark">Redline Recital</h1>
           <p class="tagline">Every engine is an instrument. On this one, the note is <b id="tagline-formula">RPM ÷ 15</b>.</p>
+          <p class="byline" data-native-keys>
+            <span>By Abdul Raouf</span><span class="dot" aria-hidden="true">·</span><span>Built with Claude Code</span
+            ><span class="dot" aria-hidden="true">·</span><a href="./making-of.html">How it was made</a
+            ><span class="dot" aria-hidden="true">·</span
+            ><button class="link-btn" id="hire" type="button" aria-expanded="false" aria-controls="contact">Work with me</button>
+          </p>
         </div>
         <nav class="engines" id="engines" aria-label="Choose an engine"></nav>
       </header>
@@ -128,13 +150,33 @@
             play them like a keyboard, or chase a melody with the throttle. Every sound is synthesised live from the
             engine's own firing order.
           </p>
-          <button class="btn primary big" id="start" type="button">Start the engine</button>
+          <button class="btn primary big" id="start" type="button" disabled>Warming up…</button>
           <p class="gate-small">Sound on. Headphones bring out the V8 burble.</p>
+          <p class="gate-small gate-credit" data-native-keys>
+            By Abdul Raouf, built with Claude Code. <a href="./making-of.html">How it was made</a>
+          </p>
+        </div>
+      </div>
+
+      <div class="contact" id="contact" role="dialog" aria-labelledby="contact-title" data-native-keys hidden>
+        <div class="contact-head">
+          <h2 class="contact-title" id="contact-title">Work with me</h2>
+          <button class="link-btn" id="contact-close" type="button">Close</button>
+        </div>
+        <p class="contact-copy">
+          I'm Abdul Raouf. I direct AI tools to research, design and ship interactive products like this one, fast. This
+          site went from one sentence to eight working engines in about two hours.
+        </p>
+        <p class="contact-email" id="contact-email">abdul.raouf9899@gmail.com</p>
+        <div class="contact-actions">
+          <button class="btn" id="contact-copy-btn" type="button">Copy email</button>
+          <a class="btn primary" href="mailto:abdul.raouf9899@gmail.com?subject=Project%20enquiry%20(Redline%20Recital)">Email me</a>
+          <a class="btn" href="./making-of.html">See how it was made</a>
         </div>
       </div>
 
       <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
     </div>
-    <script type="module" src="./src/main.ts"></script>
+    <script type="module" src="./src/boot.ts"></script>
   </body>
 </html>

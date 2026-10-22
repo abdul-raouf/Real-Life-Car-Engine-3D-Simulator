@@ -158,5 +158,70 @@ async function noOverflow(page, name) {
   await context.close();
 }
 
+// ---- Credit and contact ----------------------------------------------------------------
+{
+  const { context, page } = await open('contact', { viewport: { width: 1280, height: 800 }, colorScheme: 'dark' });
+  await page.click('#start');
+  await page.waitForFunction(() => window.__redline.sim.state === 'running', null, { timeout: 30000 });
+  const credit = await page.locator('.byline').innerText();
+  if (!credit.includes('Abdul Raouf') || !credit.includes('Claude Code')) problems.push(`credit line wrong: ${credit}`);
+  await page.click('#hire');
+  const shown = await page.locator('#contact').isVisible();
+  if (!shown) problems.push('Work with me popover did not open');
+  await page.screenshot({ path: `${outDir}/14-contact.png` });
+  await page.keyboard.press('Escape');
+  if (await page.locator('#contact').isVisible()) problems.push('Escape did not close the contact popover');
+  await context.close();
+}
+
+// ---- Case study page --------------------------------------------------------------------
+for (const [name, viewport, scheme] of [
+  ['doc-desktop-dark', { width: 1440, height: 900 }, 'dark'],
+  ['doc-desktop-light', { width: 1440, height: 900 }, 'light'],
+  ['doc-phone-dark', { width: 390, height: 844 }, 'dark'],
+]) {
+  const context = await browser.newContext({ viewport, colorScheme: scheme });
+  const page = await context.newPage();
+  page.on('console', (m) => m.type() === 'error' && problems.push(`[${name}] console: ${m.text()}`));
+  page.on('pageerror', (e) => problems.push(`[${name}] page error: ${e}`));
+  page.on('requestfailed', (r) => {
+    // Media requests cancelled when the page closes are not failures.
+    if (r.failure()?.errorText !== 'net::ERR_ABORTED') problems.push(`[${name}] failed request: ${r.url()} ${r.failure()?.errorText}`);
+  });
+  await page.goto(url + 'making-of.html', { waitUntil: 'networkidle' });
+  await noOverflow(page, name);
+  const media = await page.evaluate(async () => {
+    const srcs = [...document.querySelectorAll('audio, img')].map((e) => e.getAttribute('src'));
+    const codes = await Promise.all(srcs.map((s) => fetch(s, { method: 'HEAD' }).then((r) => r.status)));
+    return srcs.map((s, i) => [s, codes[i]]);
+  });
+  for (const [src, code] of media) if (code !== 200) problems.push(`[${name}] ${src} returned ${code}`);
+  await page.screenshot({ path: `${outDir}/15-${name}.png` });
+  await context.close();
+}
+
+// ---- Social card and no-WebGL fallback ----------------------------------------------------
+{
+  const page = await browser.newPage();
+  const og = await page.goto(url + 'og.png');
+  if (og.status() !== 200) problems.push(`og.png returned ${og.status()}`);
+  const size = await page.evaluate(() => {
+    const img = document.querySelector('img');
+    return img ? [img.naturalWidth, img.naturalHeight] : null;
+  });
+  if (!size || size[0] !== 1200 || size[1] !== 630) problems.push(`og.png is ${size}, expected 1200x630`);
+  await page.close();
+}
+{
+  const noGl = await chromium.launch({ args: ['--disable-3d-apis', '--disable-webgl'] });
+  const page = await noGl.newPage({ viewport: { width: 1280, height: 800 } });
+  await page.goto(url, { waitUntil: 'networkidle' });
+  await wait(800);
+  const fallback = await page.locator('a[href="./making-of.html#listen"]').count();
+  if (fallback !== 1) problems.push('no-WebGL fallback did not appear');
+  await page.screenshot({ path: `${outDir}/16-no-webgl.png` });
+  await noGl.close();
+}
+
 await browser.close();
 console.log(problems.length ? 'PROBLEMS:\n' + problems.join('\n') : 'no problems found');

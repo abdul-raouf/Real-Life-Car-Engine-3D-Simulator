@@ -1,9 +1,15 @@
 # Redline Recital
 
+![The crossplane V8 mid-rev on its stand, with the tachometer, piano and engine notes](public/media/hero-v8.jpg)
+
 Eight engines on a studio stand, each tuned like an instrument. An engine's note is its
 firing frequency: **RPM × cylinders ÷ 120** for a four-stroke, **RPM × rotors ÷ 60** for a
 Wankel. A V8 at 3,300 rpm hums A3 (220 Hz).
 Rev them, play them from a keyboard, or chase a melody with the throttle in Rev Hero.
+
+Created by **Abdul Raouf**, built with **Claude Code**. Read
+[how it was made](making-of.html): one sentence to a researched, tested, eight-engine site
+in about two hours. Want something like this built? Email abdul.raouf9899@gmail.com.
 
 | Engine | Firing order | Pitch | Range |
 |---|---|---|---|
@@ -71,7 +77,28 @@ recording or a downloaded model.
   and redline are estimates. Renesis R, e, width and redline are factory figures; its
   idle and port timing are estimates.
 
-## Publishing
+## Deploying
+
+It is a static site. On Cloudflare Pages (or Netlify, Vercel, GitHub Pages):
+
+- Build command: `npm run build`
+- Output folder: `dist`
+- Environment: `NODE_VERSION=22`, and `SITE_URL` set to the site's address (for example
+  `https://redline-recital.pages.dev`) so social previews get absolute links.
+
+## Media and checks
+
+```sh
+npm run render-wavs                    # WAV renders of every engine into out/
+python3 scripts/figures.py             # spectrogram figures into public/media/
+npx vite preview --port 4173 &         # then, with the preview running:
+node scripts/capture-media.mjs         # screenshots and the 1200×630 social card
+node scripts/shoot.mjs http://localhost:4173/ shots   # end-to-end browser check
+```
 
 `node scripts/artifact-page.mjs` turns `dist/index.html` into the fragment page the
-claude.ai Artifact host expects, and prints the asset map to publish alongside it.
+claude.ai Artifact host expects.
+
+## License
+
+MIT, © 2026 Abdul Raouf.
