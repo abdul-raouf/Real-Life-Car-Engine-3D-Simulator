@@ -32,7 +32,7 @@ function studioEnvironment(): THREE.Scene {
     m.lookAt(0, 0, 0);
     env.add(m);
   };
-  panel(6, 3.5, 0xffffff, 1.5, [0, 8, 1]);
+  panel(6, 3.5, 0xffffff, 1.2, [0, 8, 1]);
   panel(1.1, 6, 0xeef3ff, 3.2, [-7, 2, 3]);
   panel(1.1, 6, 0xffffff, 2.4, [6, 2, 5]);
   panel(4, 1.2, 0xffc48a, 1.3, [3, 1.2, -7]);
@@ -58,11 +58,15 @@ export class Stage {
   private fog: THREE.Fog;
   private camGoal: { target: THREE.Vector3; distance: number } | null = null;
   private lastInteraction = -Infinity;
+  private focus: { w: number; h: number; W: number; H: number } | null = null;
+  private frameTime = 1 / 60;
+  private slowFor = 0;
+  private pixelRatio = Math.min(window.devicePixelRatio, 2);
   autoRotate = true;
 
   constructor(private container: HTMLElement) {
     const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(this.pixelRatio);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.AgXToneMapping;
     renderer.toneMappingExposure = 1.05;
@@ -105,8 +109,8 @@ export class Stage {
     key.shadow.radius = 6;
     this.scene.add(key, key.target);
 
-    const rimWarm = new THREE.SpotLight(0xffb067, 18, 9, 0.5, 0.7, 1.4);
-    rimWarm.position.set(2.8, 1.8, -2.6);
+    const rimWarm = new THREE.SpotLight(0xffb067, 12, 9, 0.5, 0.7, 1.4);
+    rimWarm.position.set(2.8, 1.2, -2.6);
     this.scene.add(rimWarm);
     const rimCool = new THREE.SpotLight(0x8fb6ff, 14, 9, 0.5, 0.7, 1.4);
     rimCool.position.set(-3, 1.4, -2.2);
@@ -123,8 +127,8 @@ export class Stage {
     const controls = new OrbitControls(this.camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.07;
-    controls.minDistance = 0.6;
-    controls.maxDistance = 6;
+    controls.minDistance = 0.5;
+    controls.maxDistance = 7;
     controls.maxPolarAngle = Math.PI * 0.49;
     controls.autoRotateSpeed = 0.45;
     controls.target.set(0, 0.45, 0);
@@ -139,7 +143,7 @@ export class Stage {
     const target = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: 4 });
     this.composer = new EffectComposer(renderer, target);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
-    this.bloom = new UnrealBloomPass(size, 0.38, 0.35, 1.55);
+    this.bloom = new UnrealBloomPass(size, 0.36, 0.35, 1.9);
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
 
@@ -154,14 +158,31 @@ export class Stage {
     (this.floor.material as THREE.MeshStandardMaterial).color.set(t.floor);
   }
 
+  /**
+   * Keep the engine centred in the part of the screen the UI leaves free.
+   * (x, y, w, h) is that free rectangle in CSS pixels.
+   */
+  setFocus(x: number, y: number, w: number, h: number) {
+    const W = this.container.clientWidth || 1;
+    const H = this.container.clientHeight || 1;
+    this.focus = { w: Math.max(80, w), h: Math.max(80, h), W, H };
+    const dx = W / 2 - (x + w / 2);
+    const dy = H / 2 - (y + h / 2);
+    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) this.camera.clearViewOffset();
+    else this.camera.setViewOffset(W, H, dx, dy, W, H);
+    this.camera.updateProjectionMatrix();
+  }
+
   /** Glide the camera to frame an object of this radius around this point. */
   frame(center: THREE.Vector3, radius: number, immediate = false) {
-    const fov = (this.camera.fov * Math.PI) / 180;
-    const aspect = Math.max(0.6, this.camera.aspect);
-    const fit = radius / Math.sin(Math.min(fov, fov * aspect) / 2);
-    const distance = fit * (aspect < 1 ? 1.05 : 0.92);
+    const f = this.focus;
+    const vHalf = Math.atan(Math.tan((this.camera.fov * Math.PI) / 360) * (f ? f.h / f.H : 1));
+    const aspect = f ? f.w / f.h : this.camera.aspect;
+    const hHalf = Math.atan(Math.tan(vHalf) * aspect);
+    const fit = radius / Math.sin(Math.min(vHalf, hHalf));
+    const distance = fit * 0.92;
     const target = center.clone();
-    target.y -= radius * (aspect < 1 ? 0.22 : 0.08);
+    target.y -= radius * 0.06;
     if (immediate) {
       this.controls.target.copy(target);
       const dir = this.camera.position.clone().sub(this.controls.target).normalize();
@@ -182,7 +203,21 @@ export class Stage {
     this.bloom.setSize(w, h);
   }
 
+  /** Lower the resolution step by step if the device cannot keep up. */
+  private adapt(dt: number) {
+    this.frameTime += (dt - this.frameTime) * 0.05;
+    this.slowFor = this.frameTime > 1 / 40 ? this.slowFor + dt : 0;
+    if (this.slowFor > 1.5 && this.pixelRatio > 1) {
+      this.pixelRatio = Math.max(1, this.pixelRatio - 0.5);
+      this.renderer.setPixelRatio(this.pixelRatio);
+      this.composer.setPixelRatio(this.pixelRatio);
+      this.resize();
+      this.slowFor = 0;
+    }
+  }
+
   render(dt: number) {
+    this.adapt(dt);
     if (this.camGoal) {
       const k = 1 - Math.exp(-dt * 3);
       this.controls.target.lerp(this.camGoal.target, k);

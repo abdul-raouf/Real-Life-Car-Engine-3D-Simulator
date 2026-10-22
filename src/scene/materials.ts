@@ -49,7 +49,7 @@ export function makeMaterials(): Materials {
     header: metal(0xb3a999, 0.36, { emissive: 0x000000 }),
     intake: metal(0xc0c4c8, 0.3),
     // Heat-tinted titanium gold, the accent of the whole site.
-    anodized: metal(0xb98d3f, 0.32),
+    anodized: metal(0xa47b37, 0.46),
     ceramic: new THREE.MeshStandardMaterial({ color: 0xefede8, roughness: 0.35, metalness: 0 }),
     rubber: new THREE.MeshStandardMaterial({ color: 0x18191c, roughness: 0.85, metalness: 0 }),
     stand: new THREE.MeshStandardMaterial({ color: 0x2b2e34, roughness: 0.55, metalness: 0.7 }),

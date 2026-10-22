@@ -4,9 +4,140 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Redline Recital</title>
+    <meta name="claude:viewport-fit-sides" content="cover" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=Big+Shoulders+Display:wght@600;800&family=Martian+Mono:wght@400;600&display=swap"
+    />
   </head>
   <body>
-    <div id="stage" style="position:fixed;inset:0"></div>
+    <div class="app" id="app">
+      <div class="stage" id="stage" aria-hidden="true"></div>
+
+      <header class="topbar">
+        <div class="brand">
+          <h1 class="wordmark">Redline Recital</h1>
+          <p class="tagline">Every engine is an instrument. Its pitch is <b>RPM × cylinders ÷ 120</b>.</p>
+        </div>
+        <nav class="engines" id="engines" aria-label="Choose an engine"></nav>
+      </header>
+
+      <aside class="card" id="card" aria-labelledby="card-title">
+        <button class="card-close" id="card-close" type="button" aria-label="Close engine notes">Close</button>
+        <p class="eyebrow" id="card-role">Lead</p>
+        <h2 class="card-title" id="card-title">Crossplane V8</h2>
+        <p class="card-example" id="card-example"></p>
+        <dl class="specs" id="card-specs"></dl>
+        <figure class="ring">
+          <svg id="ring" viewBox="0 0 220 220" role="img" aria-label="Firing order around the four-stroke cycle"></svg>
+          <figcaption>
+            Firing order around one 720° cycle. <span class="bank-a">Gold</span> and <span class="bank-b">blue</span> are the two
+            banks; the hand follows the crank in slow motion.
+          </figcaption>
+        </figure>
+        <p class="why" id="card-why"></p>
+        <div class="shake-meter">
+          <div class="shake-head">
+            <span class="label">Shaking force on the mounts</span>
+            <span class="value" id="shake-value">0.0 kN</span>
+          </div>
+          <div class="bar"><span id="shake-bar"></span></div>
+          <p class="shake-note" id="shake-note"></p>
+        </div>
+      </aside>
+
+      <div class="highway" id="highway-wrap" hidden><canvas id="highway" aria-label="Rev Hero piano roll"></canvas></div>
+      <div class="countdown" id="countdown" hidden></div>
+
+      <section class="console" id="console" aria-label="Controls">
+        <div class="gauge">
+          <svg class="tach" id="tach" viewBox="0 0 240 200" role="img" aria-label="Tachometer"></svg>
+          <div class="readout">
+            <div class="rpm"><span id="rpm">0</span><small>rpm</small></div>
+            <div class="note" id="note">—</div>
+            <div class="hz" id="hz">0.0 Hz</div>
+          </div>
+        </div>
+
+        <div class="deck">
+          <div class="deck-head">
+            <div class="modes" role="tablist" aria-label="Mode">
+              <button role="tab" id="tab-free" data-mode="free" aria-selected="true" type="button">Free rev</button>
+              <button role="tab" id="tab-play" data-mode="play" aria-selected="false" type="button">Play</button>
+              <button role="tab" id="tab-hero" data-mode="hero" aria-selected="false" type="button">Rev Hero</button>
+            </div>
+            <div class="toggles">
+              <button class="toggle" id="t-xray" type="button" aria-pressed="true">X-ray</button>
+              <button class="toggle" id="t-slow" type="button" aria-pressed="true">Slow-mo</button>
+              <button class="toggle" id="t-shake" type="button" aria-pressed="true">Shake</button>
+              <button class="toggle" id="t-pulses" type="button" aria-pressed="true">Pulses</button>
+              <button class="toggle info" id="t-info" type="button" aria-pressed="false">Engine notes</button>
+              <label class="volume" for="volume"><span>Vol</span><input id="volume" type="range" min="0" max="1" step="0.01" value="0.8" /></label>
+            </div>
+          </div>
+
+          <div class="panel" id="panel-free" role="tabpanel" aria-labelledby="tab-free">
+            <button class="pedal" id="pedal" type="button" aria-label="Throttle pedal: press and hold, higher is more throttle">
+              <span class="pedal-fill" id="pedal-fill"></span>
+              <span class="pedal-label">Hold to rev</span>
+            </button>
+            <p class="hint">
+              Hold <kbd>Space</kbd> or press the pedal. Higher on the pedal means more throttle. Watch for the limiter at
+              <span id="limit-text">6,800</span> rpm.
+            </p>
+          </div>
+
+          <div class="panel" id="panel-play" role="tabpanel" aria-labelledby="tab-play" hidden>
+            <div class="piano-wrap"><div class="piano" id="piano"></div></div>
+            <div class="play-row">
+              <p class="hint">Keys <kbd>A</kbd>–<kbd>K</kbd> play, <kbd>Z</kbd>/<kbd>X</kbd> shift octave. The ECU holds the RPM for each note.</p>
+              <div class="demo">
+                <label class="sr" for="demo-song">Song for the ECU to play</label>
+                <select id="demo-song"></select>
+                <button class="btn" id="demo-play" type="button">Let the ECU play it</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel" id="panel-hero" role="tabpanel" aria-labelledby="tab-hero" hidden>
+            <div class="hero-row">
+              <label class="field" for="hero-song"><span>Song</span><select id="hero-song"></select></label>
+              <div class="seg" role="radiogroup" aria-label="Difficulty">
+                <button type="button" role="radio" id="diff-easy" aria-checked="true">Easy · steer the pitch</button>
+                <button type="button" role="radio" id="diff-hard" aria-checked="false">Hard · raw throttle</button>
+              </div>
+              <button class="btn primary" id="hero-start" type="button">Start</button>
+            </div>
+            <div class="hero-stats">
+              <div><span class="k">Score</span><span class="v" id="hero-score">0</span></div>
+              <div><span class="k">Streak</span><span class="v" id="hero-streak">0</span></div>
+              <div><span class="k">In tune</span><span class="v" id="hero-acc">—</span></div>
+              <p class="hint" id="hero-hint">Easy: drag up and down over the stage and the ECU follows your pitch. Hard: feather <kbd>Space</kbd> to hold each note.</p>
+            </div>
+          </div>
+
+          <canvas class="spectrum" id="spectrum" aria-label="Live spectrum of the engine sound"></canvas>
+        </div>
+      </section>
+
+      <div class="gate" id="gate">
+        <div class="gate-card">
+          <p class="eyebrow">Six engines, one stage</p>
+          <h2 class="gate-title">Redline Recital</h2>
+          <p class="gate-copy">
+            An engine's note is its firing frequency. A V8 at 3,300 rpm hums A3, exactly 220 Hz. Rev these six engines,
+            play them like a keyboard, or chase a melody with the throttle. Every sound is synthesised live from the
+            engine's own firing order.
+          </p>
+          <button class="btn primary big" id="start" type="button">Start the engine</button>
+          <p class="gate-small">Sound on. Headphones bring out the V8 burble.</p>
+        </div>
+      </div>
+
+      <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+    </div>
     <script type="module" src="./src/main.ts"></script>
   </body>
 </html>
